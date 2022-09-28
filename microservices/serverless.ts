@@ -11,7 +11,7 @@ const serverlessConfiguration: AWS = {
     webpack: {
       webpackConfig: './webpack.config.js',
       includeModules: true,
-      packager: 'yarn',
+      packager: 'npm',
     },
     stage: '${opt:stage, self:provider.stage}',
     stages: ['staging', 'production'],
@@ -29,6 +29,11 @@ const serverlessConfiguration: AWS = {
   provider: {
     name: 'aws',
     runtime: 'nodejs14.x',
+    region: 'eu-west-1',
+    // endpointType: 'PRIVATE',
+    // vpcEndpointIds: [
+    //   {Ref: 'Vpc'}
+    // ],
     iamRoleStatements: [
       {
         Effect: 'Allow',
@@ -36,6 +41,10 @@ const serverlessConfiguration: AWS = {
         Resource: '*',
       },
     ],
+    vpc: {
+      securityGroupIds: [{ Ref: 'LambdaSecurityGroup' }],
+      subnetIds: [{ Ref: 'PrivateSubnet1' }],
+    },
     apiGateway: {
       minimumCompressionSize: 1024,
       shouldStartNameWithService: true,
@@ -56,6 +65,52 @@ const serverlessConfiguration: AWS = {
     lambdaHashingVersion: '20201221',
   },
   functions: { hello, goodbye },
+  resources: {
+    Resources: {
+      Vpc: {
+        Type: 'AWS::EC2::VPC',
+        Properties: {
+          CidrBlock: '10.0.0.0/16',
+        },
+      },
+      PrivateSubnet1: {
+        Type: 'AWS::EC2::Subnet',
+        Properties: {
+          AvailabilityZone: 'eu-west-1a',
+          CidrBlock: '10.0.1.0/24',
+          VpcId: {
+            Ref: 'Vpc',
+          },
+        },
+      },
+      PublicSubnet1: {
+        Type: 'AWS::EC2::Subnet',
+        Properties: {
+          AvailabilityZone: 'eu-west-1c',
+          CidrBlock: '10.0.21.0/24',
+          VpcId: {
+            Ref: 'Vpc',
+          },
+        },
+      },
+      LambdaSecurityGroup: {
+        Type: 'AWS::EC2::SecurityGroup',
+        Properties: {
+          GroupName: '${self:service}-${self:custom.stage}-lambda',
+          GroupDescription: 'Allow all outbound traffic, no inbound',
+          SecurityGroupIngress: [
+            {
+              IpProtocol: -1,
+              CidrIp: '127.0.0.1/32',
+            },
+          ],
+          VpcId: {
+            Ref: 'Vpc',
+          },
+        },
+      },
+    },
+  },
 };
 
 module.exports = serverlessConfiguration;
